@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#00f0ff">
+    <title>XOLERIC AI</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <link rel="manifest" id="manifest-link">
+
+    <style>
+        :root {
+            --bg: #050508; --glass: rgba(10, 15, 25, 0.8); --primary: #00f0ff; --secondary: #ff007b; --accent: #ffd700;
+            --font-main: 'Nunito', sans-serif; --font-code: 'Space Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { display: none; }
+        body { font-family: var(--font-main); background: var(--bg); color: #fff; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* BOOT SCREEN */
+        #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.8s; }
+        .logo { font-family: var(--font-code); font-size: 3.5rem; text-shadow: 0 0 20px var(--primary); animation: pulse 2s infinite; text-align: center; line-height: 1.2;}
+        .v2-badge { font-size: 1.2rem; background: var(--secondary); padding: 5px 15px; border-radius: 20px; color: #fff; margin-top: 10px; }
+        @keyframes pulse { 50% { transform: scale(1.05); text-shadow: 0 0 40px var(--secondary); } }
+        #start-btn { margin-top: 40px; padding: 15px 40px; border: 2px solid var(--primary); background: transparent; color: var(--primary); font-family: var(--font-code); font-size: 1.2rem; border-radius: 30px; cursor: pointer; transition: 0.3s; }
+        #start-btn:active { background: var(--primary); color: #000; }
+
+        /* HEADER & OFFLINE INDICATOR */
+        header { height: 70px; background: var(--glass); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid rgba(0,240,255,0.2); }
+        .ai-status { display: flex; align-items: center; gap: 10px; }
+        .ai-mic { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 15px var(--primary); transition: 0.3s; }
+        .ai-mic.listening { background: var(--secondary); box-shadow: 0 0 20px var(--secondary); animation: pulse 1s infinite; }
+        .net-status { font-family: var(--font-code); font-size: 0.7rem; color: #00e676; border: 1px solid #00e676; padding: 3px 8px; border-radius: 10px; }
+
+        /* MAIN SLIDER */
+        .viewport { flex: 1; overflow: hidden; position: relative; }
+        .track { display: flex; width: 300vw; height: 100%; transition: transform 0.5s cubic-bezier(0.25,1,0.5,1); }
+        .page { width: 100vw; height: 100%; overflow-y: auto; padding: 20px; padding-bottom: 40px; }
+        .title { font-family: var(--font-code); font-size: 1.3rem; color: var(--primary); margin-bottom: 20px; border-left: 5px solid var(--secondary); padding-left: 10px; }
+
+        /* ALIFBO */
+        .alpha-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; }
+        .char-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 900; cursor: pointer; transition: 0.2s; }
+        .char-btn:active { transform: scale(0.9); background: var(--primary); color: #000; }
+        .word-modal { display: none; background: #111; border: 1px solid var(--primary); border-radius: 15px; padding: 20px; margin-top: 20px; }
+        .word-modal.show { display: block; animation: slideUp 0.3s; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .word-pill { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 10px; font-size: 1.5rem; color: var(--accent); border-left: 4px solid var(--primary); display: flex; justify-content: space-between; cursor: pointer;}
+
+        /* 3D ENGINE */
+        .canvas-wrap { width: 100%; height: 35vh; background: #000; border-radius: 15px; border: 1px solid var(--primary); overflow: hidden; margin-bottom: 15px; box-shadow: inset 0 0 30px rgba(0,240,255,0.2);}
+        .ctrl-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; }
+        .c-btn { padding: 10px 15px; background: #111; border: 1px solid #333; color: #fff; border-radius: 10px; font-family: var(--font-code); white-space: nowrap; cursor: pointer; }
+        .c-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+
+        /* MULTIPLAYER MATH */
+        .multi-board { display: flex; flex-direction: column; height: 100%; gap: 15px; }
+        .player-zone { flex: 1; background: rgba(255,255,255,0.05); border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; padding: 15px; position: relative;}
+        .p2-zone { transform: rotate(180deg); border-color: var(--secondary); }
+        .p1-zone { border-color: var(--primary); }
+        .score-badge { position: absolute; top: 10px; right: 10px; background: #000; padding: 5px 15px; border-radius: 20px; font-family: var(--font-code); font-weight: bold;}
+        .eq-display { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; font-family: var(--font-code); font-weight: 900; }
+        .ans-row { display: flex; gap: 10px; }
+        .m-btn { flex: 1; padding: 15px; background: #000; border: 2px solid #555; border-radius: 10px; color: #fff; font-size: 2rem; font-weight: 900; cursor: pointer; }
+        .m-btn:active { background: #fff; color: #000; }
+
+        /* BOTTOM NAV */
+        nav { height: var(--nav-height); background: var(--glass); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); }
+        .n-btn { display: flex; flex-direction: column; align-items: center; color: var(--text-dim); transition: 0.3s; }
+        .n-btn i { font-size: 1.5rem; font-family: var(--font-code); font-style: normal; margin-bottom: 5px; }
+        .n-btn span { font-size: 0.7rem; font-family: var(--font-code); font-weight: bold; }
+        .n-btn.active { color: var(--primary); transform: translateY(-5px); }
+
+        /* INSTALL BANNER */
+        #install-banner { display: none; position: fixed; bottom: 85px; left: 10px; right: 10px; background: var(--primary); color: #000; padding: 15px; border-radius: 15px; font-family: var(--font-code); font-weight: bold; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 0 20px var(--primary);}
+    </style>
+</head>
+<body>
+
+    <div id="boot">
+        <div class="logo">XOLERIC AI <div class="v2-badge">v2.0 OFFLINE PWA</div></div>
+        <button id="start-btn" onclick="bootSystem()">TIZIMNI YUKLASH</button>
+    </div>
+
+    <div id="install-banner">
+        <span>📲 Dasturni O'rnatish (APK)</span>
+        <button onclick="installPWA()" style="padding:5px 10px; background:#000; color:var(--primary); border:none; border-radius:5px; cursor:pointer;">O'RNATISH</button>
+    </div>
+
+    <header>
+        <div class="ai-status">
+            <div class="ai-mic" id="ai-mic" onclick="toggleVoiceAI()">🎙️</div>
+            <div>
+                <div style="font-family: var(--font-code); font-weight:bold; color:var(--primary); font-size: 0.9rem;">Ovozli Yordamchi</div>
+                <div style="font-size: 0.75rem; color:#aaa;" id="ai-txt">Gapirish uchun bosing...</div>
+            </div>
+        </div>
+        <div class="net-status" id="net-stat">OFFLINE AI</div>
+    </header>
+
+    <main class="viewport">
+        <div class="track" id="slider">
+            
+            <div class="page">
+                <div class="title">Intellektual Alifbo</div>
+                <div class="alpha-grid" id="alpha-grid"></div>
+                <div class="word-modal" id="w-modal">
+                    <h3 id="w-title" style="color:var(--primary); font-family:var(--font-code); margin-bottom:15px;"></h3>
+                    <div id="w-list"></div>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="title">Koinot Engin-i (WebGPU Mode)</div>
+                <div class="canvas-wrap" id="3d-wrap"></div>
+                
+                <div class="ctrl-row" id="shape-btns">
+                    <button class="c-btn active" onclick="mod3D('shape','cube',this)">Kub</button>
+                    <button class="c-btn" onclick="mod3D('shape','sphere',this)">Sfera</button>
+                    <button class="c-btn" onclick="mod3D('shape','torus',this)">Halqa</button>
+                    <button class="c-btn" onclick="mod3D('shape','knot',this)">Tugun</button>
+                </div>
+                <div class="ctrl-row" id="mat-btns">
+                    <button class="c-btn active" onclick="mod3D('mat','neon',this)">Neon</button>
+                    <button class="c-btn" onclick="mod3D('mat','glass',this)">Shisha</button>
+                    <button class="c-btn" onclick="mod3D('mat','wire',this)">To'r</button>
+                    <button class="c-btn" onclick="mod3D('mat','atom',this)">Atom Zarracha</button>
+                </div>
+                <div class="ctrl-row">
+                    <button class="c-btn active" onclick="rot3D('x',this)">Rot-X</button>
+                    <button class="c-btn active" onclick="rot3D('y',this)">Rot-Y</button>
+                    <button class="c-btn" onclick="rot3D('z',this)">Rot-Z</button>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="title">1 vs 1 Matematika Jangi</div>
+                <div class="multi-board">
+                    <div class="player-zone p2-zone">
+                        <div class="score-badge" style="color:var(--secondary)">P2 BALL: <span id="p2-score">0</span></div>
+                        <div class="eq-display" id="eq-p2">?</div>
+                        <div class="ans-row" id="ans-p2"></div>
+                    </div>
+                    
+                    <div class="player-zone p1-zone">
+                        <div class="score-badge" style="color:var(--primary)">P1 BALL: <span id="p1-score">0</span></div>
+                        <div class="eq-display" id="eq-p1">?</div>
+                        <div class="ans-row" id="ans-p1"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <nav>
+        <div class="n-btn active" onclick="navTab(0, this)"><i>Aa</i><span>ALIFBO</span></div>
+        <div class="n-btn" onclick="navTab(1, this)"><i>▰</i><span>3D ENGINE</span></div>
+        <div class="n-btn" onclick="navTab(2, this)"><i>⚔️</i><span>VERSUS</span></div>
+    </nav>
+
+<script>
+    // ==========================================
+    // PWA & OFFLINE TIZIMI (DINAMIK)
+    // ==========================================
+    const manifestJSON = {
+        name: "Xoleric AI v2",
+        short_name: "Xoleric",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#050508",
+        theme_color: "#00f0ff",
+        icons: [{ src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMDUwNTA4Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjAwIiBmaWxsPSIjMDBmMGZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjM1ZW0iPlg8L3RleHQ+PC9zdmc+", sizes: "512x512", type: "image/svg+xml" }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestJSON)], {type: 'application/json'});
+    document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+
+    // Oflayn Service Worker (Blob)
+    const swCode = `
+        const CACHE_NAME = 'xoleric-v2';
+        self.addEventListener('install', e => { self.skipWaiting(); });
+        self.addEventListener('fetch', e => {
+            e.respondWith(caches.match(e.request).then(res => res || fetch(e.request).catch(() => new Response('Offline mode active.'))));
+        });
+    `;
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).then(()=>console.log("Offline Engine Ready"));
+    }
+
+    // O'rnatish (APK/PWA)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault(); deferredPrompt = e;
+        document.getElementById('install-banner').style.display = 'flex';
+    });
+    function installPWA() {
+        if(!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(()=>{ document.getElementById('install-banner').style.display = 'none'; });
+    }
+
+    // ==========================================
+    // AUDIO & TTS
+    // ==========================================
+    const ACTX = window.AudioContext || window.webkitAudioContext;
+    let actx;
+    function initAudio() { if(!actx) actx = new ACTX(); if(actx.state==='suspended') actx.resume(); }
+    function playBeep(type) {
+        if(!actx) return; let o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+        if(type==='click') { o.type='sine'; o.frequency.setValueAtTime(800,t); g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.1); o.start(t); o.stop(t+0.1); }
+        if(type==='win') { o.type='triangle'; o.frequency.setValueAtTime(600,t); o.frequency.setValueAtTime(1200,t+0.1); g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.3); o.start(t); o.stop(t+0.3); }
+        if(type==='err') { o.type='sawtooth'; o.frequency.setValueAtTime(200,t); g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.3); o.start(t); o.stop(t+0.3); }
+        o.connect(g); g.connect(actx.destination);
+    }
+    function say(txt) { try{ window.speechSynthesis.cancel(); let u = new SpeechSynthesisUtterance(txt); u.lang='uz-UZ'; window.speechSynthesis.speak(u); }catch(e){} }
+    function vibro(ms) { try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+
+    // ==========================================
+    // OFFLINE VOICE AI ASSISTANT
+    // ==========================================
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let isListening = false;
+    
+    function toggleVoiceAI() {
+        if(!SpeechRec) return alert("Brauzeringiz ovoz tanishni qo'llab quvvatlamaydi!");
+        const rec = new SpeechRec(); rec.lang = 'uz-UZ';
+        const mic = document.getElementById('ai-mic'); const txt = document.getElementById('ai-txt');
+        
+        rec.onstart = () => { isListening = true; mic.classList.add('listening'); txt.innerText = "Sizni eshityapman..."; playBeep('click'); };
+        rec.onend = () => { isListening = false; mic.classList.remove('listening'); };
+        rec.onresult = (e) => {
+            let res = e.results[0][0].transcript.toLowerCase();
+            txt.innerText = `Siz: ${res}`;
+            processOfflineAI(res);
+        };
+        rec.start();
+    }
+
+    function processOfflineAI(query) {
+        let reply = "Kechirasiz, tushunmadim.";
+        if(query.includes("salom")) reply = "Assalomu alaykum! Men Xoleric AI man.";
+        else if(query.includes("qalay") || query.includes("yaxshimi")) reply = "Rahmat, tizimlarim 100% normal ishlamoqda.";
+        else if(query.includes("matematika") || query.includes("o'yin")) { reply = "Matematika jangiga o'tkazaman."; navTab(2, document.querySelectorAll('.n-btn')[2]); }
+        else if(query.includes("alifbo")) { reply = "Alifbo moduli ochilmoqda."; navTab(0, document.querySelectorAll('.n-btn')[0]); }
+        else if(query.includes("kim san") || query.includes("isming")) reply = "Men Oflayn Neyron Tarmoq - Xoleric AI man.";
+        
+        setTimeout(() => { document.getElementById('ai-txt').innerText = `AI: ${reply}`; say(reply); playBeep('win'); }, 500);
+    }
+
+    // ==========================================
+    // SYSTEM BOOT & TABS
+    // ==========================================
+    function bootSystem() {
+        initAudio(); playBeep('win'); vibro(100);
+        document.getElementById('boot').style.opacity = '0';
+        setTimeout(() => { document.getElementById('boot').style.display = 'none'; initAlpha(); init3DLab(); genVersusMath(); say("Tizim tayyor. Oflayn rejim faol."); }, 800);
+        
+        window.addEventListener('offline', () => { document.getElementById('net-stat').innerText = 'OFFLINE AI'; document.getElementById('net-stat').style.borderColor = '#00e676'; document.getElementById('net-stat').style.color = '#00e676';});
+        window.addEventListener('online', () => { document.getElementById('net-stat').innerText = 'ONLINE'; document.getElementById('net-stat').style.borderColor = '#00f0ff'; document.getElementById('net-stat').style.color = '#00f0ff';});
+    }
+
+    function navTab(idx, btn) {
+        playBeep('click'); vibro(20);
+        document.querySelectorAll('.n-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+        document.getElementById('slider').style.transform = `translateX(-${idx*100}vw)`;
+    }
+
+    // ==========================================
+    // 1. ALIFBO
+    // ==========================================
+    const alphabets = [
+        {l:"A", w:["A-nor", "A-qlli", "A-yiq"]}, {l:"B", w:["Bo-la", "Bi-lim", "Ba-hor"]}, {l:"D", w:["Daf-tar", "Du-nyo", "Do-i-ra"]},
+        {l:"E", w:["E-shik", "E-rtak", "E-k-ran"]}, {l:"F", w:["Fil", "Fa-zo", "Fi-kr"]}
+    ]; // Demo bazasi qisqartirildi, to'liq array ishlataverasiz
+    
+    function initAlpha() {
+        const grid = document.getElementById('alpha-grid');
+        alphabets.forEach(a => {
+            let btn = document.createElement('div'); btn.className = 'char-btn'; btn.innerText = a.l;
+            btn.onclick = () => showWords(a); grid.appendChild(btn);
+        });
+    }
+
+    function showWords(obj) {
+        playBeep('click'); vibro(30); say(obj.l + " harfi");
+        let modal = document.getElementById('w-modal'); let list = document.getElementById('w-list');
+        document.getElementById('w-title').innerText = obj.l + " HARFI SO'ZLARI";
+        list.innerHTML = '';
+        obj.w.forEach(w => {
+            let el = document.createElement('div'); el.className = 'word-pill';
+            el.innerHTML = `<span>${w}</span> <span>🔊</span>`;
+            el.onclick = () => { playBeep('click'); say(w.replace(/-/g,"")); };
+            list.appendChild(el);
+        });
+        modal.classList.remove('show'); void modal.offsetWidth; modal.classList.add('show');
+    }
+
+    // ==========================================
+    // 2. WEBGPU ENGINE (THREE.JS SIMULATION)
+    // ==========================================
+    let scene, camera, renderer, mesh;
+    let rot = {x:true, y:true, z:false};
+
+    function init3DLab() {
+        let wrap = document.getElementById("3d-wrap");
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, wrap.clientWidth/wrap.clientHeight, 0.1, 1000); camera.position.z = 3;
+        renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+        renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+        wrap.appendChild(renderer.domElement);
+
+        let light = new THREE.PointLight(0x00f0ff, 2); light.position.set(2,5,2); scene.add(light);
+        scene.add(new THREE.AmbientLight(0xff007b, 0.5));
+
+        createShape("cube", "neon");
+        anim3D();
+    }
+
+    function createShape(shape, matType) {
+        if(mesh) scene.remove(mesh);
+        let geo;
+        if(shape==="sphere") geo = new THREE.SphereGeometry(1.2, 32, 32);
+        else if(shape==="torus") geo = new THREE.TorusGeometry(1, 0.3, 32, 100);
+        else if(shape==="knot") geo = new THREE.TorusKnotGeometry(0.8, 0.2, 100, 16);
+        else geo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+
+        let mat;
+        if(matType==="glass") mat = new THREE.MeshPhysicalMaterial({color:0xffd700, transmission:0.9, opacity:1, roughness:0});
+        else if(matType==="wire") mat = new THREE.MeshBasicMaterial({color:0x00e676, wireframe:true});
+        else if(matType==="atom") mat = new THREE.PointsMaterial({color:0xff007b, size:0.05});
+        else mat = new THREE.MeshStandardMaterial({color:0x00f0ff, emissive:0x002244});
+
+        mesh = (matType==="atom") ? new THREE.Points(geo, mat) : new THREE.Mesh(geo, mat);
+        scene.add(mesh);
+    }
+
+    function mod3D(type, val, btn) {
+        playBeep("click");
+        if(type==="shape") createShape(val, document.querySelector('#mat-btns .active').innerText.toLowerCase().includes('atom')?'atom':'neon');
+        if(type==="mat") createShape(document.querySelector('#shape-btns .active').innerText.toLowerCase(), val);
+        btn.parentElement.querySelectorAll(".c-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
+    }
+
+    function rot3D(axis, btn) { rot[axis] = !rot[axis]; btn.classList.toggle("active"); playBeep('click');}
+    function anim3D() { requestAnimationFrame(anim3D); if(mesh){ if(rot.x)mesh.rotation.x+=0.01; if(rot.y)mesh.rotation.y+=0.01; if(rot.z)mesh.rotation.z+=0.01; } renderer.render(scene, camera); }
+
+    // ==========================================
+    // 3. MULTIPLAYER MATH (VERSUS MODE)
+    // ==========================================
+    let p1Score = 0, p2Score = 0, multiAns = 0, isLock = false;
+
+    function genVersusMath() {
+        isLock = false;
+        let a = Math.floor(Math.random() * 20) + 1; let b = Math.floor(Math.random() * 20) + 1;
+        multiAns = a + b;
+        document.getElementById('eq-p1').innerText = `${a} + ${b}`;
+        document.getElementById('eq-p2').innerText = `${a} + ${b}`;
+
+        let opts = [multiAns];
+        while(opts.length < 3) { let f = multiAns + Math.floor(Math.random()*10)-5; if(f>0 && !opts.includes(f)) opts.push(f); }
+        opts.sort(()=>Math.random()-0.5);
+
+        renderBtns('p1', opts); renderBtns('p2', opts);
+    }
+
+    function renderBtns(player, opts) {
+        let row = document.getElementById(`ans-${player}`); row.innerHTML = '';
+        opts.forEach(v => {
+            let b = document.createElement('button'); b.className = 'm-btn'; b.innerText = v;
+            b.onclick = () => handleMulti(player, v, b); row.appendChild(b);
+        });
+    }
+
+    function handleMulti(player, val, btn) {
+        if(isLock) return; isLock = true; // Bitta o'yinchi bosganda qulflanadi
+        
+        if(val === multiAns) {
+            playBeep('win'); vibro([50,50]); btn.style.background = '#00e676';
+            if(player === 'p1') { p1Score++; document.getElementById('p1-score').innerText = p1Score; }
+            else { p2Score++; document.getElementById('p2-score').innerText = p2Score; }
+            confetti({particleCount: 100, origin: {y: player==='p1'?1:0}});
+        } else {
+            playBeep('err'); btn.style.background = '#ff007b';
+        }
+        setTimeout(genVersusMath, 1500);
+    }
+
+</script>
+</body>
+</html>
