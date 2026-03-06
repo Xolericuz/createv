@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>XOLERIC AI</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #030407;
+            --glass: rgba(15, 20, 30, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --cyan: #00f0ff; --magenta: #ff007b; --yellow: #ffea00; --green: #00e676;
+            --text-main: #f0f4f8; --text-dim: #8b9bb4;
+            --nav-height: 85px; --header-height: 80px;
+            --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            font-family: 'Nunito', sans-serif; background: var(--bg-base); color: var(--text-main);
+            height: 100dvh; width: 100vw; overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        /* TIZIMGA KIRISH (BOOT) */
+        #boot {
+            position: fixed; inset: 0; z-index: 99999; background: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden; perspective: 1000px; transition: 0.8s ease-in-out;
+        }
+        .cyber-grid {
+            position: absolute; width: 200vw; height: 200vh;
+            background-image: linear-gradient(rgba(0,240,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,0.2) 1px, transparent 1px);
+            background-size: 50px 50px; transform: rotateX(60deg) translateY(-100px) translateZ(-200px);
+            animation: moveGrid 10s linear infinite; pointer-events: none;
+        }
+        @keyframes moveGrid { to { background-position: 0 50px; } }
+        
+        .boot-box { z-index: 2; text-align: center; }
+        .logo { font-family: 'Space Mono'; font-size: 4rem; font-weight: 900; color: #fff; text-shadow: 0 0 20px var(--cyan), 0 0 40px var(--magenta); margin-bottom: 40px; animation: float 3s infinite alternate; }
+        @keyframes float { to { transform: translateY(-15px); } }
+        .start-btn {
+            padding: 20px 60px; font-family: 'Space Mono'; font-size: 1.5rem; font-weight: 700;
+            background: rgba(0,240,255,0.1); border: 2px solid var(--cyan); color: var(--cyan);
+            border-radius: 50px; cursor: pointer; backdrop-filter: blur(10px);
+            transition: all 0.3s var(--spring); box-shadow: 0 0 30px rgba(0,240,255,0.3); text-transform: uppercase;
+        }
+        .start-btn:active { transform: scale(0.9); background: var(--cyan); color: #000; }
+        .warp { transform: scale(5); opacity: 0; filter: blur(30px); pointer-events: none; }
+
+        /* HEADER */
+        .header {
+            height: var(--header-height); position: fixed; top: 0; width: 100%; z-index: 100;
+            background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; padding: 0 20px; gap: 15px;
+        }
+        .ai-avatar {
+            width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--cyan), var(--magenta));
+            display: flex; align-items: center; justify-content: center; font-family: 'Space Mono'; font-weight: 900;
+            box-shadow: 0 0 20px var(--cyan); animation: glow 2s infinite; cursor: pointer;
+        }
+        @keyframes glow { 50% { box-shadow: 0 0 30px var(--magenta); } }
+        .ai-info h1 { font-size: 1rem; color: var(--yellow); margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+        .ai-info p { font-size: 0.85rem; margin: 0; font-weight: 700; color: #fff; }
+
+        /* VIEWPORT SLIDER */
+        .viewport { position: fixed; top: var(--header-height); bottom: var(--nav-height); width: 100%; overflow: hidden; }
+        .track { display: flex; width: 300vw; height: 100%; transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+        .page { width: 100vw; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 20px 20px 40px 20px; }
+        .sec-title { font-family: 'Space Mono'; font-size: 1.4rem; color: var(--cyan); margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
+        .sec-title::before { content: ''; width: 8px; height: 25px; background: var(--magenta); border-radius: 4px; }
+
+        /* ALIFBO MODULI */
+        .grid-alpha { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 15px; }
+        .char-btn {
+            background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px;
+            aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 900;
+            cursor: pointer; transition: all 0.3s var(--spring); box-shadow: 0 8px 20px rgba(0,0,0,0.4); opacity: 0; transform: scale(0.5);
+        }
+        .char-btn.loaded { opacity: 1; transform: scale(1); }
+        .char-btn:active { transform: scale(0.85); }
+
+        .words-modal {
+            background: linear-gradient(160deg, rgba(20,25,35,0.98), rgba(10,12,18,0.98)); border: 1px solid var(--cyan);
+            border-radius: 25px; padding: 25px; margin-top: 30px; display: none; opacity: 0; transform: translateY(50px);
+            transition: all 0.5s var(--spring); box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+        .words-modal.show { display: block; opacity: 1; transform: translateY(0); }
+        .word-pill {
+            font-size: 1.8rem; font-weight: 900; color: var(--yellow); background: rgba(0,0,0,0.5); padding: 18px 25px;
+            margin-bottom: 15px; border-radius: 18px; border-left: 6px solid var(--green); display: flex;
+            justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s var(--spring);
+        }
+        .word-pill:active { transform: scale(0.95); background: rgba(0,240,255,0.15); }
+
+        /* 3D STUDIO MODULI */
+        .canvas-box { width: 100%; height: 42vh; border-radius: 25px; background: #000; overflow: hidden; border: 1px solid var(--glass-border); position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.9); }
+        .ctrl-scroll { display: flex; gap: 12px; overflow-x: auto; padding: 20px 0; }
+        .ctrl-group { display: flex; gap: 10px; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 20px; border: 1px solid var(--glass-border); }
+        .c-btn {
+            padding: 12px 25px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff;
+            font-family: 'Space Mono'; font-weight: 700; border-radius: 14px; cursor: pointer; transition: 0.3s var(--spring); white-space: nowrap;
+        }
+        .c-btn.active { background: var(--cyan); color: #000; border-color: var(--cyan); box-shadow: 0 0 20px rgba(0,240,255,0.4); }
+        .c-btn:active { transform: scale(0.9); }
+
+        /* MATEMATIKA MODULI */
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; }
+        .stat-card { flex: 1; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 20px; padding: 15px; text-align: center; }
+        .stat-lbl { font-size: 0.8rem; color: var(--text-dim); font-family: 'Space Mono'; font-weight: bold; }
+        .stat-val { font-size: 2.2rem; font-weight: 900; }
+
+        .eq-board { font-size: 4.5rem; text-align: center; margin: 30px 0; font-family: 'Space Mono'; font-weight: 900; color: #fff; text-shadow: 0 0 30px var(--cyan); }
+        .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .a-btn {
+            background: linear-gradient(145deg, rgba(30,35,45,0.9), rgba(10,15,20,0.9)); border: 2px solid var(--glass-border);
+            padding: 25px; border-radius: 22px; font-size: 2.8rem; font-weight: 900; color: #fff; cursor: pointer; transition: 0.2s var(--spring);
+        }
+        .a-btn:active { transform: scale(0.85); }
+
+        .terminal { background: #020305; border: 1px solid var(--magenta); border-radius: 20px; padding: 25px; margin-top: 30px; font-family: 'Space Mono'; }
+        .t-inp-row { display: flex; gap: 10px; margin-top: 15px; }
+        .t-inp { flex: 1; background: transparent; border: none; border-bottom: 2px solid var(--cyan); color: var(--green); font-size: 1.3rem; font-family: 'Space Mono'; outline: none; }
+        .t-btn { background: var(--magenta); color: #fff; border: none; padding: 0 25px; font-weight: 900; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+        .t-btn:active { transform: scale(0.9); }
+        .t-log { margin-top: 20px; max-height: 150px; overflow-y: auto; color: #fff; font-size: 1rem; display: flex; flex-direction: column; gap: 10px; }
+
+        /* BOTTOM NAV */
+        .bottom-nav {
+            height: var(--nav-height); position: fixed; bottom: 0; width: 100%; z-index: 100;
+            background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-btn { display: flex; flex-direction: column; align-items: center; color: var(--text-dim); width: 33%; cursor: pointer; transition: 0.4s var(--spring); }
+        .nav-btn i { font-size: 1.8rem; font-weight: 900; font-family: 'Space Mono'; font-style: normal; margin-bottom: 5px; transition: 0.4s var(--spring); }
+        .nav-btn span { font-size: 0.75rem; font-weight: 900; letter-spacing: 1px; }
+        .nav-btn.active { color: var(--cyan); }
+        .nav-btn.active i { transform: translateY(-8px) scale(1.2); text-shadow: 0 0 20px var(--cyan); }
+    </style>
+</head>
+<body>
+
+    <div id="boot">
+        <div class="cyber-grid"></div>
+        <div class="boot-box">
+            <div class="logo">XOLERIC AI<br><span style="font-size: 1.5rem; color: var(--green);">SUPER EDITION</span></div>
+            <button class="start-btn" onclick="systemBoot()">Tizimni Boshlash</button>
+        </div>
+    </div>
+
+    <header class="header" onclick="playBeep('click')">
+        <div class="ai-avatar" onclick="say('Men Professor Xoleric. Ta\'limni boshlaymiz!')">AI</div>
+        <div class="ai-info">
+            <h1>Professor AI</h1>
+            <p id="ai-txt">Tizim ishlamoqda...</p>
+        </div>
+    </header>
+
+    <main class="viewport">
+        <div class="track" id="slider">
+            
+            <div class="page">
+                <div class="sec-title">Mukammal Alifbo</div>
+                <div class="grid-alpha" id="alpha-grid"></div>
+                <div class="words-modal" id="w-modal">
+                    <h3 style="text-align:center; font-family:'Space Mono'; font-size:1.6rem; margin-bottom:20px;" id="w-title"></h3>
+                    <div id="w-list"></div>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="sec-title">Koinot Laboratoriyasi</div>
+                <div class="canvas-box" id="3d-wrap"><div id="3d-canvas" style="width:100%;height:100%"></div></div>
+                <div class="ctrl-scroll">
+                    <div class="ctrl-group" id="grp-shape">
+                        <button class="c-btn active" onclick="mod3D('shape','cube',this)">Kub</button>
+                        <button class="c-btn" onclick="mod3D('shape','sphere',this)">Shar</button>
+                        <button class="c-btn" onclick="mod3D('shape','torus',this)">Halqa</button>
+                        <button class="c-btn" onclick="mod3D('shape','dodecahedron',this)">Dodekaedr</button>
+                        <button class="c-btn" onclick="mod3D('shape','knot',this)">Tugun</button>
+                    </div>
+                </div>
+                <div class="ctrl-scroll">
+                    <div class="ctrl-group" id="grp-mat">
+                        <button class="c-btn active" style="color:var(--cyan)" onclick="mod3D('mat','neon',this)">Neon</button>
+                        <button class="c-btn" style="color:var(--yellow)" onclick="mod3D('mat','glass',this)">Shisha</button>
+                        <button class="c-btn" style="color:#fff" onclick="mod3D('mat','wire',this)">To'r</button>
+                        <button class="c-btn" style="color:var(--magenta)" onclick="mod3D('mat','atom',this)">Atom</button>
+                    </div>
+                </div>
+                <div class="ctrl-scroll">
+                    <div class="ctrl-group">
+                        <button class="c-btn active" onclick="rot3D('x',this)">Rot-X</button>
+                        <button class="c-btn active" onclick="rot3D('y',this)">Rot-Y</button>
+                        <button class="c-btn" onclick="rot3D('z',this)">Rot-Z</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="sec-title">Aqlli Ustoz AI</div>
+                <div class="stats">
+                    <div class="stat-card"><div class="stat-lbl">DARaja</div><div class="stat-val" style="color:var(--cyan)" id="m-lvl">1</div></div>
+                    <div class="stat-card"><div class="stat-lbl">BALL</div><div class="stat-val" style="color:var(--green)" id="m-scr">0</div></div>
+                </div>
+                <div class="eq-board" id="m-eq">?</div>
+                <div class="ans-grid">
+                    <button class="a-btn" onclick="ansMath(this)">0</button>
+                    <button class="a-btn" onclick="ansMath(this)">0</button>
+                    <button class="a-btn" onclick="ansMath(this)">0</button>
+                    <button class="a-btn" onclick="ansMath(this)">0</button>
+                </div>
+                <div class="terminal">
+                    <div style="color:var(--magenta);font-weight:900;">> SUPER HISOBLAGICH</div>
+                    <div style="font-size:0.85rem;color:var(--text-dim);margin:5px 0;">Matematik misollar uchun (Masalan: 125/5)</div>
+                    <div class="t-inp-row">
+                        <input type="text" class="t-inp" id="calc-inp" placeholder="Misolni yozing...">
+                        <button class="t-btn" onclick="doCalc()">HAL QIL</button>
+                    </div>
+                    <div class="t-log" id="calc-log"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="nav-btn active" onclick="navTab(0, this, 'Alifbo bo\'limi faollashdi')"><i>Aa</i><span>ALIFBO</span></div>
+        <div class="nav-btn" onclick="navTab(1, this, '3D Laboratoriya ishga tushdi')"><i>▰</i><span>STUDIO</span></div>
+        <div class="nav-btn" onclick="navTab(2, this, 'Matematika ustoziga xush kelibsiz')"><i>∑</i><span>USTOZ</span></div>
+    </nav>
+
+<script>
+    // 1. OVOZ & VIBRATSIYA MOTORLARI
+    const ACTX = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+    
+    function startAudio() {
+        if(!audioCtx) {
+            audioCtx = new ACTX();
+            let osc = audioCtx.createOscillator(); let g = audioCtx.createGain();
+            g.gain.value = 0; osc.connect(g); g.connect(audioCtx.destination); osc.start(0); osc.stop(0.1);
+        }
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playBeep(type) {
+        if(!audioCtx || audioCtx.state !== 'running') return;
+        let o = audioCtx.createOscillator(); let g = audioCtx.createGain(); let t = audioCtx.currentTime;
+        if(type === 'click') { o.type='sine'; o.frequency.setValueAtTime(700, t); g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.1); o.start(t); o.stop(t+0.1); }
+        if(type === 'win') { o.type='triangle'; o.frequency.setValueAtTime(800, t); o.frequency.setValueAtTime(1200, t+0.1); g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.3); o.start(t); o.stop(t+0.3); }
+        if(type === 'err') { o.type='sawtooth'; o.frequency.setValueAtTime(250, t); g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t+0.3); o.start(t); o.stop(t+0.3); }
+        o.connect(g); g.connect(audioCtx.destination);
+    }
+    
+    function vibro(p) { try { if(navigator.vibrate) navigator.vibrate(p); } catch(e){} }
+    
+    function say(text) {
+        try { window.speechSynthesis.cancel(); let u = new SpeechSynthesisUtterance(text); u.lang = 'uz-UZ'; u.rate = 0.85; window.speechSynthesis.speak(u); } catch(e){}
+    }
+    function updateAI(msg) { document.getElementById('ai-txt').innerText = msg; say(msg); }
+
+    // 2. TIZIMGA KIRISH (BOOT)
+    function systemBoot() {
+        startAudio(); playBeep('win'); vibro([100,50,100]);
+        try { let e = document.documentElement; if(e.requestFullscreen) e.requestFullscreen().catch(()=>{}); else if(e.webkitRequestFullscreen) e.webkitRequestFullscreen().catch(()=>{}); } catch(err){}
+        
+        let boot = document.getElementById('boot'); boot.classList.add('warp');
+        setTimeout(() => {
+            boot.style.display = 'none';
+            initAlpha(); init3DLab(); genMath(); updateAI("Tizim maksimal quvvatda ishga tushdi!");
+        }, 800);
+    }
+
+    // 3. TAB NAVIGATSIYA
+    function navTab(idx, btn, msg) {
+        playBeep('click'); vibro(30);
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+        document.getElementById('slider').style.transform = `translateX(-${idx * 100}vw)`; updateAI(msg);
+        if(idx === 1 && renderer) { setTimeout(() => { let w = document.getElementById('3d-wrap'); camera.aspect = w.clientWidth/w.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(w.clientWidth, w.clientHeight); }, 500); }
+    }
+
+    // 4. KENGAYTIRILGAN ALIFBO BAZASI (8 ta bo'g'inli so'z)
+    const alphabets = [
+        {l:"A", w:["A-nor 🍎","A-tom ⚛️","A-ro-ba 🛒","A-qlli 🧠","A-yiq 🐻","A-tir-gul 🌹","A-sa-la-ri 🐝","A-v-to-bus 🚌"]},
+        {l:"B", w:["Bo-la 👦","Ba-liq 🐟","Bi-lim 📚","Ba-hor 🌸","Be-shik 🛏️","Bay-roq 🇺🇿","Bo-g'-bon 👨‍🌾","Bu-lut ☁️"]},
+        {l:"D", w:["Da-raxt 🌳","Daf-tar 📓","De-l-fin 🐬","Du-nyo 🌍","Da-vo 💊","Da-z-mol 🧲","Do-i-ra 🥁","Du-ta-r 🎸"]},
+        {l:"E", w:["E-shik 🚪","E-rtak 📖","E-k-ran 💻","E-l-chi 🤝","E-chk-i 🐐","E-k-in 🌱","E-l-viz 🌬️","E-ti-k 👢"]},
+        {l:"F", w:["Fil 🐘","Fa-zo 🚀","Fo-nus 🏮","Fa-n 🔬","Fi-kr 💡","Fa-vv-o-ra ⛲","Fe-r-mer 🚜","Fu-t-bol ⚽"]},
+        {l:"G", w:["Gul 🌸","Ga-pir 🗣️","G-lo-bus 🌍","Go'-sht 🥩","Gu-l-xan 🔥","Gu-ru-ch 🍚","Gu-l-zor 🏞️","Ga-la 🦅"]},
+        {l:"H", w:["Hof-iz 🎤","Ha-vo 💨","Hay-von 🦁","Ha-yat 🏡","Hi-lo-l 🌙","Ha-y-kal 🗽","Ha-r-f 🔠","Hu-r-mat 🤝"]},
+        {l:"I", w:["I-lon 🐍","I-dish 🍽️","I-p 🧵","I-lim 🎓","I-pak 👘","I-g-na 🪡","I-z-qu-var 🕵️","I-q-lim 🌤️"]},
+        {l:"J", w:["Jo'-ja 🐥","Ji-raf 🦒","Ja-sur 🦸‍♂️","Ja-d-val 📊","Ja-vo-n 🗄️","Ji-m-jit 🤫","Ja-zo ⚖️","Ja-ng-chi 🥷"]},
+        {l:"K", w:["Ki-tob 📘","Ke-ma 🚢","Ku-yosh ☀️","Ku-chu-k 🐶","Ka-li-t 🗝️","Ka-mon 🏹","Ku-z 🍂","Ke-ch-a 🌃"]},
+        {l:"L", w:["Lo-la 🌷","Li-mon 🍋","La-g-an 🍲","La-fz 💬","Lo-y 🧱","La-o-qat 🎭","Li-ko-p-cha 🍽️","Lu-g'-at 📖"]},
+        {l:"M", w:["Ma-shq 🏃","Mu-shuk 🐈","Mak-tab 🏫","Ma-shi-na 🚗","Mo-mo 👵","Me-va 🍎","Mu-z-qay-moq 🍦","May-mun 🐒"]},
+        {l:"N", w:["Non 🥖","No-k 🍐","Na-y 🪈","Nu-r 🌟","Na-ho-r 🌅","No-g'-o-ra 🥁","Ne-va-ra 👶","Na-mu-na 📋"]},
+        {l:"O", w:["O-yi 👩","O-t 🐎","O-lov 🔥","O-la-m 🌌","O-l-ma 🍎","O-q-qu-sh 🦢","O-lti 6️⃣","O-i-la 👨‍👩‍👦"]},
+        {l:"P", w:["Pa-xta ☁️","Po-yezd 🚂","Pi-sh-loq 🧀","Pa-lo-v 🍛","Pi-cho-q 🔪","Pay-poq 🧦","Pi-yoz 🧅","Par-da 🪟"]},
+        {l:"Q", w:["Qo'-y 🐑","Qu-yosh ☀️","Qa-lam ✏️","Qa-n-d 🍬","Qu-sh 🐦","Qoy-a 🪨","Qo-vun 🍈","Qo-zo-n 🥘"]},
+        {l:"R", w:["Ra-ke-ta 🚀","Ra-ng 🎨","Ru-ch-ka 🖊️","Ra-sm 🖼️","Ro-bo-t 🤖","Ray-hon 🌿","Ra-qam 🔢","Ra-di-o 📻"]},
+        {l:"S", w:["So-at ⌚","Sa-b-zi 🥕","Su-v 💧","Sa-n-diq 🧰","Sa-r-ta-ro-sh ✂️","Sa-mo-lyot ✈️","So-chiq 🧻","Sa-noq 🧮"]},
+        {l:"T", w:["To-g' ⛰️","Tul-ki 🦊","Tu-xu-m 🥚","To-j 👑","Te-mi-r ⛓️","Ta-r-vuz 🍉","Tu-ya 🐪","Ti-sh 🦷"]},
+        {l:"U", w:["U-y 🏠","U-zum 🍇","U-cha-r 🛩️","U-sta 🔨","U-ka 👦","U-ya 🪹","U-z-uk 💍","U-mi-d 🕊️"]},
+        {l:"V", w:["Ve-lo-si-ped 🚲","Va-qt ⏳","Va-raq 📄","Va-ta-n 🇺🇿","Vi-j-do-n ❤️","Va-z-ir 🕴️","Vay-ro-na 🏚️","Va-k-il 🤝"]},
+        {l:"X", w:["Xat ✉️","Xa-zi-na 💰","Xo-na 🪟","Xa-l-q 👨‍👩‍👧‍👦","Xa-tu-n 👰","Xo-r-ma 🏺","Xay-r 👋","Xo-ti-ra 🧠"]},
+        {l:"Y", w:["Yul-duz ⭐","Yong'-oq 🌰","Yo'-l 🛣️","Yi-gi-t 👨","Yo'-l-ba-rs 🐅","Ya-lp-iz 🌿","Yo-m-g'ir 🌧️","Yu-z 💯"]},
+        {l:"Z", w:["Za-n-jir ⛓️","Zar-af-shon 🏞️","Zi-na 🪜","Za-bo-n 👅","Za-r-ga-r 💍","Za-mi-n 🌍","Zi-ra-k 💎","Za-fa-r 🏅"]},
+        {l:"O'", w:["O'-r-dak 🦆","O'-yin 🎮","O'-qi-tuv-chi 👨‍🏫","O'-r-mon 🌲","O'-z-be-k 🇺🇿","O'-rik 🍑","O'-r-toq 🤝","O'-l-kam 🌄"]},
+        {l:"G'", w:["G'-il-di-rak 🛞","G'-oz 🦢","G'-o-r 🪨","G'-o-ya 💡","G'-a-la-ba 🏆","G'-i-sht 🧱","G'-o'-za 🌱","G'-am 😔"]},
+        {l:"Sh", w:["Sha-mol 🌬️","Shum-ta-ka 😜","Sha-r 🎈","She-r 🦁","Sha-k-ar 🍬","Shi-f-o-kor 👨‍⚕️","Sha-h-ar 🏙️","Shu-d-ring 💧"]},
+        {l:"Ch", w:["Cho-y ☕","Chu-mo-li 🐜","Cha-q-moq ⚡","Cha-q-a-loq 👶","Che-va-r 🪡","Cho-l 👴","Cho-p-on 👘","Cha-n-g 💨"]},
+        {l:"Ng", w:["To-ng 🌅","De-ng-iz 🌊","Ba-ng 💥","Ja-ng ⚔️","Me-ng-za-sh 🔄","Do-ng 🔔","Ku-y-la-ng 🎶","Bo-ri-ng 🚶‍♂️"]}
+    ];
+
+    function initAlpha() {
+        let grid = document.getElementById('alpha-grid');
+        let cols = ['var(--cyan)','var(--magenta)','var(--yellow)','var(--green)','#b026ff'];
+        alphabets.forEach((item, i) => {
+            let btn = document.createElement('div'); btn.className = 'char-btn';
+            btn.innerText = item.l; btn.style.color = cols[i % cols.length];
+            btn.onclick = () => showAlpha(item, cols[i % cols.length]);
+            grid.appendChild(btn);
+            setTimeout(()=> btn.classList.add('loaded'), i * 50); // Staggered yuklanish
+        });
+    }
+
+    function showAlpha(item, col) {
+        playBeep('click'); vibro(40); say(item.l + " harfi");
+        let mod = document.getElementById('w-modal'); let list = document.getElementById('w-list');
+        document.getElementById('w-title').innerText = `${item.l} HARFI:`;
+        document.getElementById('w-title').style.color = col;
+        list.innerHTML = '';
+        item.w.forEach((w, i) => {
+            let d = document.createElement('div'); d.className = 'word-pill';
+            d.innerHTML = `<span>${w}</span> <span style="font-size:1.5rem;opacity:0.6">🔊</span>`;
+            d.style.borderLeftColor = col; d.style.opacity = 0; d.style.transform = 'translateY(20px)';
+            setTimeout(() => { d.style.opacity = 1; d.style.transform = 'translateY(0)'; }, i * 60);
+            d.onclick = () => {
+                playBeep('click'); vibro(20);
+                let clean = w.replace(/[^a-zA-ZO'o'G'g'ShshChchNgng\-]/g, '').replace(/-/g, ''); // Bo'g'in chiziqni olib ravon o'qitish
+                say(clean); updateAI(clean + " so'zi");
+            };
+            list.appendChild(d);
+        });
+        mod.classList.remove('show'); void mod.offsetWidth; mod.classList.add('show');
+        mod.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+
+    // 5. INQILOBIY 3D STUDIO
+    let scene, camera, renderer, cMesh;
+    let rx=true, ry=true, rz=false;
+    let cShape='cube', cMat='neon';
+
+    function init3DLab() {
+        let w = document.getElementById('3d-wrap');
+        scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(45, w.clientWidth/w.clientHeight, 0.1, 1000); camera.position.set(3,2,4);
+        renderer = new THREE.WebGLRenderer({alpha:true, antialias:true}); renderer.setSize(w.clientWidth, w.clientHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('3d-canvas').appendChild(renderer.domElement);
+        
+        scene.add(new THREE.AmbientLight(0xffffff,0.4));
+        let dl = new THREE.DirectionalLight(0xffffff,1); dl.position.set(5,10,5); scene.add(dl);
+        let pl1 = new THREE.PointLight(0x00f0ff,2,10); pl1.position.set(-2,2,2); scene.add(pl1);
+        let pl2 = new THREE.PointLight(0xff007b,2,10); pl2.position.set(2,-2,-2); scene.add(pl2);
+        
+        update3D(); anim3D();
+    }
+
+    function update3D() {
+        if(cMesh) scene.remove(cMesh);
+        let geo;
+        if(cShape==='cube') geo = new THREE.BoxGeometry(1.6,1.6,1.6);
+        else if(cShape==='sphere') geo = new THREE.SphereGeometry(1.2,64,64);
+        else if(cShape==='torus') geo = new THREE.TorusGeometry(1,0.4,32,100);
+        else if(cShape==='dodecahedron') geo = new THREE.DodecahedronGeometry(1.4);
+        else if(cShape==='knot') geo = new THREE.TorusKnotGeometry(0.8,0.3,100,16);
+
+        let mat;
+        if(cMat==='neon') mat = new THREE.MeshStandardMaterial({color:0x00f0ff, emissive:0x0033aa, roughness:0.1, metalness:0.8});
+        else if(cMat==='glass') mat = new THREE.MeshPhysicalMaterial({color:0xffea00, transmission:0.9, opacity:1, roughness:0, ior:1.5});
+        else if(cMat==='wire') mat = new THREE.MeshBasicMaterial({color:0xffffff, wireframe:true});
+        else if(cMat==='atom') mat = new THREE.PointsMaterial({color:0xff007b, size:0.04});
+
+        cMesh = (cMat==='atom') ? new THREE.Points(geo, mat) : new THREE.Mesh(geo, mat); scene.add(cMesh);
+        
+        cMesh.scale.set(0.01,0.01,0.01); let s = 0.01; let iv = setInterval(()=>{ s+=0.06; cMesh.scale.set(s,s,s); if(s>=1) clearInterval(iv); }, 16);
+    }
+
+    function mod3D(cat, val, btn) {
+        playBeep('click'); vibro(20);
+        if(cat==='shape') { cShape=val; document.querySelectorAll('#grp-shape .c-btn').forEach(b=>b.classList.remove('active')); }
+        else { cMat=val; document.querySelectorAll('#grp-mat .c-btn').forEach(b=>b.classList.remove('active')); }
+        btn.classList.add('active'); update3D();
+    }
+    function rot3D(axis, btn) { playBeep('click'); vibro(15); btn.classList.toggle('active'); if(axis==='x') rx=!rx; if(axis==='y') ry=!ry; if(axis==='z') rz=!rz; }
+    
+    function anim3D() { requestAnimationFrame(anim3D); if(cMesh){ if(rx)cMesh.rotation.x+=0.01; if(ry)cMesh.rotation.y+=0.01; if(rz)cMesh.rotation.z+=0.01; } if(renderer) renderer.render(scene, camera); }
+
+    // 6. MATEMATIKA USToZI (AI)
+    let m_lv=1, m_sc=0, cr_a=0;
+
+    function genMath() {
+        let a, b, op;
+        if(m_lv <= 3) { 
+            a=Math.floor(Math.random()*20)+1; b=Math.floor(Math.random()*20)+1; op=Math.random()>0.5?'+':'-'; if(op==='-'&&b>a)[a,b]=[b,a]; 
+        } else if(m_lv <= 6) { 
+            let ops=['+','-','*','/']; op=ops[Math.floor(Math.random()*ops.length)];
+            if(op==='*'){a=Math.floor(Math.random()*12)+2;b=Math.floor(Math.random()*12)+2;}
+            else if(op==='/'){b=Math.floor(Math.random()*12)+2;a=b*(Math.floor(Math.random()*12)+2);}
+            else {a=Math.floor(Math.random()*100)+20;b=Math.floor(Math.random()*100)+10; if(op==='-'&&b>a)[a,b]=[b,a];}
+        } else { op='*'; a=Math.floor(Math.random()*25)+10; b=Math.floor(Math.random()*25)+10; }
+
+        cr_a = eval(`${a}${op}${b}`);
+        let dp = op; if(op==='*') dp='×'; if(op==='/') dp='÷';
+        
+        let el = document.getElementById('m-eq'); el.style.transform='scale(0)'; el.style.opacity=0;
+        setTimeout(()=>{ el.innerText=`${a} ${dp} ${b} = ?`; el.style.transition='all 0.5s var(--spring)'; el.style.transform='scale(1)'; el.style.opacity=1; }, 200);
+
+        let opts=[cr_a]; while(opts.length<4){ let f=cr_a+(Math.floor(Math.random()*20)-10); if(f>0 && !opts.includes(f)) opts.push(f); } opts.sort(()=>Math.random()-0.5);
+        let btns = document.querySelectorAll('.a-btn'); btns.forEach((b,i)=>{ b.innerText=opts[i]; b.style.background=''; b.style.borderColor='var(--glass-border)'; b.disabled=false; });
+    }
+
+    function ansMath(btn) {
+        let v = parseInt(btn.innerText); document.querySelectorAll('.a-btn').forEach(b=>b.disabled=true);
+        if(v === cr_a) {
+            playBeep('win'); vibro([50,50]); btn.style.background='var(--green)'; btn.style.color='#000'; m_sc+=10;
+            if(m_sc >= m_lv*40) { m_lv++; confetti({particleCount:250, spread:150, colors:['#00f0ff','#ff007b','#ffea00']}); updateAI(`Daxshat! ${m_lv}-darajaga chiqdik!`); } 
+            else { updateAI("Mantiqiy javob to'g'ri!"); }
+            document.getElementById('m-scr').innerText=m_sc; document.getElementById('m-lvl').innerText=m_lv; setTimeout(genMath, 1500);
+        } else {
+            playBeep('err'); vibro(200); btn.style.background='var(--magenta)'; btn.style.borderColor='red'; updateAI("Diqqatli bo'ling, qayta urinib ko'ramiz."); setTimeout(genMath, 1500);
+        }
+    }
+
+    function doCalc() {
+        let i = document.getElementById('calc-inp'); let s = i.value.trim(); if(!s) return;
+        playBeep('click'); vibro(20); let log = document.getElementById('calc-log'); let d = document.createElement('div');
+        try {
+            if(!/^[0-9+\-*/().\s]+$/.test(s)) throw new Error("Faqat raqamlar!");
+            let r = new Function('return '+s)(); if(isNaN(r)||r===undefined) throw new Error("Ifoda xato");
+            r = Number.isInteger(r)?r:parseFloat(r.toFixed(4));
+            d.innerHTML = `<div style="color:var(--text-dim)">> ${s}</div><div style="color:var(--green);font-weight:900;font-size:1.3rem;">= ${r}</div>`; say(r.toString());
+        } catch(e) { d.innerHTML = `<div style="color:var(--text-dim)">> ${s}</div><div style="color:var(--magenta);font-weight:bold;">XATO: ${e.message}</div>`; }
+        d.style.padding="10px"; d.style.background="rgba(255,255,255,0.05)"; d.style.borderRadius="10px"; d.style.borderLeft="4px solid var(--cyan)";
+        log.prepend(d); i.value='';
+    }
+    document.getElementById('calc-inp').addEventListener('keypress', (e)=>{ if(e.key==='Enter') doCalc(); });
+
+</script>
+</body>
+</html>
