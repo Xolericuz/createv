@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#050508">
+    <title>XOLERIC AI v3</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #050508; --glass: rgba(10, 15, 25, 0.85); --primary: #00f0ff; 
+            --secondary: #ff007b; --accent: #ffd700; --text-dim: #666;
+            --font-main: 'Nunito', sans-serif; --font-code: 'Space Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { display: none; }
+        body { font-family: var(--font-main); background: var(--bg); color: #fff; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* BOOT SCREEN & GRID ANIMATION */
+        #boot { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease; }
+        #boot.tunnel-out { transform: scale(5); opacity: 0; pointer-events: none; }
+        
+        .grid-bg {
+            position: absolute; inset: -50%; background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: panGrid 15s linear infinite; z-index: -1;
+            transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+        }
+        @keyframes panGrid { 0% { background-position: 0 0; } 100% { background-position: 0 40px; } }
+
+        .logo { font-family: var(--font-code); font-size: 3rem; text-shadow: 0 0 20px var(--primary); z-index: 1; display: flex; flex-direction: column; align-items: center;}
+        
+        /* MINIMAL START BUTTON */
+        #start-btn { margin-top: 50px; padding: 15px 40px; border: 1px solid var(--primary); background: rgba(0, 240, 255, 0.1); color: var(--primary); font-family: var(--font-code); font-size: 1rem; border-radius: 50px; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); backdrop-filter: blur(5px); z-index: 1; letter-spacing: 2px;}
+        #start-btn:active { transform: scale(0.9); background: var(--primary); color: #000; box-shadow: 0 0 30px var(--primary); }
+
+        /* HEADER */
+        header { height: 70px; background: var(--glass); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid rgba(0,240,255,0.2); backdrop-filter: blur(10px); z-index: 10; transition: transform 0.3s;}
+        .ai-mic { width: 45px; height: 45px; border-radius: 50%; background: var(--bg); border: 2px solid var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; transition: all 0.3s ease; }
+        .ai-mic.listening { background: var(--primary); box-shadow: 0 0 20px var(--primary); animation: pulse 1s infinite; transform: scale(1.1); }
+        @keyframes pulse { 50% { box-shadow: 0 0 40px var(--primary); } }
+
+        /* MAIN SLIDER */
+        .viewport { flex: 1; overflow: hidden; position: relative; }
+        .track { display: flex; width: 400vw; height: 100%; transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
+        .page { width: 100vw; height: 100%; overflow-y: auto; padding: 20px; padding-bottom: 90px; scroll-behavior: smooth; }
+        
+        /* UI ELEMENTS ANIMATIONS */
+        .title { font-family: var(--font-code); font-size: 1.3rem; color: var(--primary); margin-bottom: 20px; border-left: 4px solid var(--secondary); padding-left: 10px; animation: slideInLeft 0.5s ease-out; }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* ALIFBO GRID */
+        .alpha-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 12px; }
+        .char-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,240,255,0.2); border-radius: 18px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 900; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .char-btn:active { transform: scale(0.85); background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
+        
+        .word-pill { background: rgba(255,255,255,0.05); padding: 15px 20px; margin-bottom: 12px; border-radius: 15px; font-size: 1.4rem; color: #fff; border-left: 4px solid var(--secondary); display: flex; justify-content: space-between; cursor: pointer; transition: transform 0.2s, background 0.2s; letter-spacing: 1px;}
+        .word-pill:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
+        .syl { color: var(--accent); }
+
+        /* 3D ENGINE & AR */
+        .canvas-wrap { width: 100%; height: 35vh; background: #000; border-radius: 20px; border: 1px solid var(--primary); overflow: hidden; margin-bottom: 15px; position: relative;}
+        .ar-btn { position: absolute; top: 10px; right: 10px; background: var(--secondary); color: white; padding: 8px 15px; border-radius: 20px; font-family: var(--font-code); font-size: 0.8rem; z-index: 5;}
+        
+        .ctrl-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; scroll-behavior: smooth;}
+        .c-btn { padding: 12px 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 12px; font-family: var(--font-code); white-space: nowrap; cursor: pointer; transition: 0.3s; }
+        .c-btn.active { background: var(--primary); color: #000; border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,240,255,0.3);}
+
+        /* SMART CANVAS */
+        #draw-pad { width: 100%; height: 50vh; background: #0a0a0a; border-radius: 20px; border: 2px dashed var(--secondary); touch-action: none; }
+        .tool-row { display: flex; gap: 10px; margin-top: 15px; justify-content: center;}
+
+        /* BOTTOM NAV */
+        nav { height: 80px; background: var(--glass); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); position: fixed; bottom: 0; width: 100%; padding-bottom: env(safe-area-inset-bottom); z-index: 10;}
+        .n-btn { display: flex; flex-direction: column; align-items: center; color: var(--text-dim); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 25%; }
+        .n-btn i { font-size: 1.6rem; margin-bottom: 5px; transition: 0.3s; }
+        .n-btn span { font-size: 0.65rem; font-family: var(--font-code); font-weight: bold; }
+        .n-btn.active { color: var(--primary); transform: translateY(-8px); }
+        .n-btn.active i { text-shadow: 0 0 15px var(--primary); transform: scale(1.2); }
+
+    </style>
+</head>
+<body>
+
+    <div id="boot">
+        <div class="grid-bg"></div>
+        <div class="logo">
+            <span style="color:var(--primary)">XOLERIC</span>
+            <span style="color:var(--secondary); font-size: 1.5rem;">AI v3</span>
+        </div>
+        <button id="start-btn" onclick="bootSystem()">TIZIMGA KIRISH</button>
+    </div>
+
+    <header id="main-header">
+        <div class="ai-status" style="display:flex; gap:15px; align-items:center;">
+            <div class="ai-mic" id="ai-mic" onclick="toggleVoiceAI()">🎙️</div>
+            <div>
+                <div style="font-family: var(--font-code); font-weight:bold; color:var(--primary); font-size: 0.9rem;">Ovozli Yordamchi</div>
+                <div style="font-size: 0.75rem; color:#aaa; transition: 0.3s;" id="ai-txt">Talaffuzni tekshirish...</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <div id="xp-badge" style="background:var(--accent); color:#000; padding:5px 10px; border-radius:15px; font-family:var(--font-code); font-weight:bold; font-size:0.8rem;">0 XP ⭐️</div>
+        </div>
+    </header>
+
+    <main class="viewport">
+        <div class="track" id="slider">
+            
+            <div class="page">
+                <div class="title">Intellektual Alifbo</div>
+                <div class="alpha-grid" id="alpha-grid"></div>
+                <div id="w-list" style="margin-top: 20px;"></div>
+            </div>
+
+            <div class="page">
+                <div class="title">Koinot va Fan (3D)</div>
+                <div class="canvas-wrap" id="3d-wrap">
+                    <div class="ar-btn" onclick="toggleAR()">AR da ko'rish 👁️</div>
+                </div>
+                <div class="ctrl-row" id="shape-btns">
+                    <button class="c-btn active" onclick="mod3D('shape','earth',this)">Yer</button>
+                    <button class="c-btn" onclick="mod3D('shape','saturn',this)">Saturn</button>
+                    <button class="c-btn" onclick="mod3D('shape','atom',this)">Atom</button>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="title">Neon Chizmachilik</div>
+                <p style="font-size:0.8rem; color:#aaa; margin-bottom:10px;">Harflarni chizishni mashq qiling:</p>
+                <canvas id="draw-pad"></canvas>
+                <div class="tool-row">
+                    <button class="c-btn active" onclick="ctx.strokeStyle='#00f0ff'">Moviy</button>
+                    <button class="c-btn" onclick="ctx.strokeStyle='#ff007b'">Pushti</button>
+                    <button class="c-btn" onclick="clearCanvas()">Tozalash 🗑️</button>
+                </div>
+            </div>
+
+            <div class="page">
+                <div class="title">Matematika Jangi</div>
+                <div style="display:flex; flex-direction:column; gap:20px; height:60vh;">
+                    <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(255,255,255,0.05); border-radius:20px; border:1px solid var(--primary);">
+                        <div style="font-size:1.5rem; color:#aaa; margin-bottom:10px;">Javobni ovozli ayting yoki bosing</div>
+                        <div id="math-eq" style="font-size:4rem; font-family:var(--font-code); font-weight:900;">2 + 2</div>
+                        <div id="math-opts" style="display:flex; gap:15px; margin-top:20px;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <nav>
+        <div class="n-btn active" onclick="navTab(0, this)"><i>Aa</i><span>ALIFBO</span></div>
+        <div class="n-btn" onclick="navTab(1, this)"><i>🪐</i><span>3D FAN</span></div>
+        <div class="n-btn" onclick="navTab(2, this)"><i>✍️</i><span>CHIZISH</span></div>
+        <div class="n-btn" onclick="navTab(3, this)"><i>🔢</i><span>MATEMATIKA</span></div>
+    </nav>
+
+<script>
+    // ==========================================
+    // TIZIMNI YUKLASH VA FULLSCREEN
+    // ==========================================
+    let userXP = 0;
+
+    function bootSystem() {
+        const boot = document.getElementById('boot');
+        boot.classList.add('tunnel-out');
+        
+        // Fullscreen so'rash
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+        }
+
+        setTimeout(() => { 
+            boot.style.display = 'none'; 
+            initAlpha(); init3DLab(); initCanvas(); genMath();
+        }, 1200);
+    }
+
+    function navTab(idx, btn) {
+        document.querySelectorAll('.n-btn').forEach(b=>b.classList.remove('active')); 
+        btn.classList.add('active');
+        document.getElementById('slider').style.transform = `translateX(-${idx*100}vw)`;
+    }
+
+    function addXP(amount) {
+        userXP += amount;
+        const badge = document.getElementById('xp-badge');
+        badge.innerText = `${userXP} XP ⭐️`;
+        badge.style.transform = "scale(1.2)";
+        setTimeout(() => badge.style.transform = "scale(1)", 300);
+    }
+
+    // ==========================================
+    // 1. ALIFBO (BO'G'INLAB)
+    // ==========================================
+    const alphabets = [
+        
+        {l:"A", w:["A-nor 🍎", "A-tom ⚛️", "A-ro-ba 🛒", "A-qlli 🧠", "A-yiq 🐻"]},
+        {l:"B", w:["Bo-la 👦", "Ba-liq 🐟", "Bi-lim 📚", "Ba-hor 🌸", "Be-shik 🛏️"]},
+        {l:"D", w:["Da-raxt 🌳", "Daf-tar 📓", "De-l-fin 🐬", "Du-nyo 🌍", "Da-vo 💊"]},
+        {l:"E", w:["E-shik 🚪", "E-rtak 📖", "E-k-ran 💻", "E-l-chi 🤝", "E-chk-i 🐐"]},
+        {l:"F", w:["Fil 🐘", "Fa-zo 🚀", "Fo-nus 🏮", "Fa-n 🔬", "Fi-kr 💡"]},
+        {l:"G", w:["Gul 🌸", "Ga-pir 🗣️", "G-lo-bus 🌍", "Go'-sht 🥩", "Gu-l-xan 🔥"]},
+        {l:"H", w:["Hof-iz 🎤", "Ha-vo 💨", "Hay-von 🦁", "Ha-yat 🏡", "Hi-lo-l 🌙"]},
+        {l:"I", w:["I-lon 🐍", "I-dish 🍽️", "I-p 🧵", "I-lim 🎓", "I-pak 👘"]},
+        {l:"J", w:["Jo'-ja 🐥", "Ji-raf 🦒", "Ja-sur 🦸‍♂️", "Ja-d-val 📊", "Ja-vo-n 🗄️"]},
+        {l:"K", w:["Ki-tob 📘", "Ke-ma 🚢", "Ku-yosh ☀️", "Ku-chu-k 🐶", "Ka-li-t 🗝️"]},
+        {l:"L", w:["Lo-la 🌷", "Li-mon 🍋", "La-g-an 🍲", "La-fz 💬", "Lo-y 🧱"]},
+        {l:"M", w:["Ma-shq 🏃", "Mu-shuk 🐈", "Mak-tab 🏫", "Ma-shi-na 🚗", "Mo-mo 👵"]},
+        {l:"N", w:["Non 🥖", "No-k 🍐", "Na-y 🪈", "Nu-r 🌟", "Na-ho-r 🌅"]},
+        {l:"O", w:["O-yi 👩", "O-t 🐎", "O-lov 🔥", "O-la-m 🌌", "O-l-ma 🍎"]},
+        {l:"P", w:["Pa-xta ☁️", "Po-yezd 🚂", "Pi-sh-loq 🧀", "Pa-lo-v 🍛", "Pi-cho-q 🔪"]},
+        {l:"Q", w:["Qo'-y 🐑", "Qu-yosh ☀️", "Qa-lam ✏️", "Qa-n-d 🍬", "Qu-sh 🐦"]},
+        {l:"R", w:["Ra-ke-ta 🚀", "Ra-ng 🎨", "Ru-ch-ka 🖊️", "Ra-sm 🖼️", "Ro-bo-t 🤖"]},
+        {l:"S", w:["So-at ⌚", "Sa-b-zi 🥕", "Su-v 💧", "Sa-n-diq 🧰", "Sa-r-ta-ro-sh ✂️"]},
+        {l:"T", w:["To-g' ⛰️", "Tul-ki 🦊", "Tu-xu-m 🥚", "To-j 👑", "Te-mi-r ⛓️"]},
+        {l:"U", w:["U-y 🏠", "U-zum 🍇", "U-cha-r 🛩️", "U-sta 🔨", "U-ka 👦"]},
+        {l:"V", w:["Ve-lo-si-ped 🚲", "Va-qt ⏳", "Va-raq 📄", "Va-ta-n 🇺🇿", "Vi-j-do-n ❤️"]},
+        {l:"X", w:["Xat ✉️", "Xa-zi-na 💰", "Xo-na 🪟", "Xa-l-q 👨‍👩‍👧‍👦", "Xa-tu-n 👰"]},
+        {l:"Y", w:["Yul-duz ⭐", "Yong'-oq 🌰", "Yo'-l 🛣️", "Yi-gi-t 👨", "Yo'-l-ba-rs 🐅"]},
+        {l:"Z", w:["Za-n-jir ⛓️", "Zar-af-shon 🏞️", "Zi-na 🪜", "Za-bo-n 👅", "Za-r-ga-r 💍"]},
+        {l:"O'", w:["O'-r-dak 🦆", "O'-yin 🎮", "O'-qi-tuv-chi 👨‍🏫", "O'-r-mon 🌲", "O'-z-be-k 🇺🇿"]},
+        {l:"G'", w:["G'-il-di-rak 🛞", "G'-oz 🦢", "G'-o-r 🪨", "G'-o-ya 💡", "G'-a-la-ba 🏆"]},
+        {l:"Sh", w:["Sha-mol 🌬️", "Shum-ta-ka 😜", "Sha-r 🎈", "She-r 🦁", "Sha-k-ar 🍬"]},
+        {l:"Ch", w:["Cho-y ☕", "Chu-mo-li 🐜", "Cha-q-moq ⚡", "Cha-q-a-loq 👶", "Che-va-r 🪡"]},
+        {l:"Ng", w:["To-ng 🌅", "De-ng-iz 🌊", "Ba-ng 💥", "Ja-ng ⚔️", "Me-ng-za-sh 🔄"]}
+    ];
+        // Qisqa demo ro'yxat, shu mantiqda Z gacha davom ettirish mumkin.
+    ];
+    
+    function initAlpha() {
+        const grid = document.getElementById('alpha-grid');
+        alphabets.forEach((a, index) => {
+            let btn = document.createElement('div'); btn.className = 'char-btn'; 
+            btn.innerText = a.l;
+            // Kichik animatsiya effekti
+            btn.style.animation = `slideInLeft ${0.1 * index}s ease-out`;
+            btn.onclick = () => showWords(a); grid.appendChild(btn);
+        });
+    }
+
+    function showWords(obj) {
+        let list = document.getElementById('w-list');
+        list.innerHTML = `<h3 style="color:var(--primary); font-family:var(--font-code); margin-bottom:15px; animation: slideInLeft 0.3s;">${obj.l} HARFI SO'ZLARI</h3>`;
+        obj.w.forEach((w, i) => {
+            let el = document.createElement('div'); el.className = 'word-pill';
+            el.style.animation = `slideInLeft ${0.2 + (i*0.1)}s ease-out`;
+            
+            // Bo'g'inlarni vizual ajratish
+            let syllables = w.split('-');
+            let formattedWord = syllables.map((s, idx) => `<span class="${idx%2==0 ? 'syl' : ''}">${s}</span>`).join('');
+            
+            el.innerHTML = `<span>${formattedWord}</span> <span style="background:var(--primary); color:#000; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:1rem;">🎙️</span>`;
+            
+            // Ovozli talaffuzni rag'batlantirish
+            el.onclick = () => { 
+                confetti({particleCount: 30, spread: 50, origin: { y: 0.8 }});
+                addXP(5);
+            };
+            list.appendChild(el);
+        });
+    }
+
+    // ==========================================
+    // 2. 3D KOINOT & AR MODULI
+    // ==========================================
+    let scene, camera, renderer, mesh;
+    function init3DLab() {
+        let wrap = document.getElementById("3d-wrap");
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, wrap.clientWidth/wrap.clientHeight, 0.1, 1000); camera.position.z = 4;
+        renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+        renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+        wrap.appendChild(renderer.domElement);
+
+        let light = new THREE.PointLight(0xffffff, 2); light.position.set(5,5,5); scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040, 2));
+
+        createShape("earth"); anim3D();
+    }
+
+    function createShape(type) {
+        if(mesh) scene.remove(mesh);
+        let geo, mat;
+        
+        if(type === 'earth') {
+            geo = new THREE.SphereGeometry(1.5, 32, 32);
+            mat = new THREE.MeshStandardMaterial({color: 0x00aaff, wireframe: true});
+        } else if (type === 'saturn') {
+            geo = new THREE.TorusGeometry(1.5, 0.4, 16, 100);
+            mat = new THREE.MeshStandardMaterial({color: 0xffd700, roughness: 0.5});
+        } else {
+            geo = new THREE.IcosahedronGeometry(1.5, 1);
+            mat = new THREE.PointsMaterial({color: 0xff007b, size: 0.1});
+            mesh = new THREE.Points(geo, mat);
+            scene.add(mesh); return;
+        }
+        mesh = new THREE.Mesh(geo, mat); scene.add(mesh);
+    }
+
+    function mod3D(action, val, btn) {
+        createShape(val);
+        document.querySelectorAll('#shape-btns .c-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function anim3D() { 
+        requestAnimationFrame(anim3D); 
+        if(mesh) { mesh.rotation.y += 0.005; mesh.rotation.x += 0.002; } 
+        renderer.render(scene, camera); 
+    }
+
+    function toggleAR() {
+        alert("AR Rejimi (WebXR) faollashmoqda... Atrofni skaner qiling.");
+    }
+
+    // ==========================================
+    // 3. SMART CANVAS (NEON CHIZISH)
+    // ==========================================
+    let canvas, ctx, isDrawing = false;
+    function initCanvas() {
+        canvas = document.getElementById('draw-pad');
+        ctx = canvas.getContext('2d');
+        let rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width; canvas.height = rect.height;
+        
+        ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 8;
+        ctx.strokeStyle = '#00f0ff'; ctx.shadowBlur = 15; ctx.shadowColor = ctx.strokeStyle;
+
+        canvas.addEventListener('pointerdown', (e)=>{ isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+        canvas.addEventListener('pointermove', (e)=>{ if(isDrawing){ ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); } });
+        canvas.addEventListener('pointerup', ()=>{ isDrawing = false; addXP(2); });
+    }
+    function clearCanvas() { ctx.clearRect(0,0, canvas.width, canvas.height); }
+
+    // ==========================================
+    // 4. MATEMATIKA VA OVOZLI TEKSHIRUV
+    // ==========================================
+    let currentAns = 0;
+    function genMath() {
+        let a = Math.floor(Math.random() * 10) + 1;
+        let b = Math.floor(Math.random() * 10) + 1;
+        currentAns = a + b;
+        
+        document.getElementById('math-eq').innerText = `${a} + ${b} = ?`;
+        document.getElementById('math-eq').style.animation = 'none';
+        void document.getElementById('math-eq').offsetWidth;
+        document.getElementById('math-eq').style.animation = 'pulse 0.5s';
+
+        let opts = [currentAns];
+        while(opts.length < 3) { 
+            let f = currentAns + Math.floor(Math.random()*6)-3; 
+            if(f>0 && !opts.includes(f)) opts.push(f); 
+        }
+        opts.sort(()=>Math.random()-0.5);
+
+        let row = document.getElementById('math-opts'); row.innerHTML = '';
+        opts.forEach((v, i) => {
+            let bBtn = document.createElement('button');
+            bBtn.innerText = v;
+            bBtn.style.cssText = `padding:20px 30px; font-size:2rem; font-family:var(--font-code); font-weight:bold; background:#111; border:2px solid #333; color:#fff; border-radius:15px; cursor:pointer; transition:0.3s; animation: slideInLeft ${0.2+(i*0.1)}s ease;`;
+            bBtn.onclick = () => checkMath(v, bBtn);
+            row.appendChild(bBtn);
+        });
+    }
+
+    function checkMath(val, btnEl) {
+        if(val === currentAns) {
+            if(btnEl) { btnEl.style.background = '#00e676'; btnEl.style.borderColor = '#00e676'; }
+            confetti({particleCount: 100, spread: 70, origin: { y: 0.6 }});
+            addXP(10);
+            document.getElementById('ai-txt').innerText = "Barakalla! To'g'ri topdingiz.";
+            setTimeout(genMath, 1500);
+        } else {
+            if(btnEl) { btnEl.style.background = '#ff007b'; btnEl.style.transform = 'translateX(-10px)'; setTimeout(()=>btnEl.style.transform='translateX(0)', 200); }
+            document.getElementById('ai-txt').innerText = "Xato, qayta urinib ko'ring.";
+        }
+    }
+
+    // ==========================================
+    // OVOZ TANISH (SPEECH RECOGNITION)
+    // ==========================================
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    function toggleVoiceAI() {
+        if(!SpeechRec) return alert("Brauzer ovoz tanishni qo'llab quvvatlamaydi.");
+        const rec = new SpeechRec(); rec.lang = 'uz-UZ';
+        const txt = document.getElementById('ai-txt'); const mic = document.getElementById('ai-mic');
+        
+        rec.onstart = () => { mic.classList.add('listening'); txt.innerText = "Sizni eshityapman..."; };
+        rec.onend = () => { mic.classList.remove('listening'); };
+        rec.onresult = (e) => {
+            let res = e.results[0][0].transcript.toLowerCase();
+            txt.innerText = `Eshitdim: ${res}`;
+            
+            // Matematika javobini ovoz orqali tekshirish
+            let numMatch = res.match(/\d+/);
+            if(numMatch && parseInt(numMatch[0]) === currentAns) {
+                checkMath(parseInt(numMatch[0]));
+            }
+        };
+        rec.start();
+    }
+</script>
+</body>
+</html>
